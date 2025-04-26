@@ -16,3 +16,6 @@ Thumbs.db
 
 # Local work
 local_work/
+
+# Checkpoints
+checkpoints/
