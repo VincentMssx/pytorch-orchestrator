@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: pytorch-worker
+spec:
+  serviceName: "pytorch-master-svc"
+  replicas: 2 # Number of workers
+  selector:
+    matchLabels:
+      app: pytorch-distributed
+      role: worker
+  template:
+    metadata:
+      labels:
+        app: pytorch-distributed
+        role: worker
+    spec:
+      containers:
+        - name: pytorch-worker
+          image: pytorch-orchestrator:latest # Your Docker image
+          env:
+            - name: RANK
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: WORLD_SIZE
+              value: "2"
+            - name: MASTER_ADDR
+              value: "pytorch-worker-0.pytorch-master-svc.default.svc.cluster.local" # DNS name of the master pod
+            - name: MASTER_PORT
+              value: "29500"
+          command: ["python", "worker.py"]
+          args:
+            - "--epochs=20"
+            - "--steps=50"
+            - "--checkpoint_interval=10"
+            - "--checkpoint_dir=/mnt/checkpoints"
+          volumeMounts:
+            - name: checkpoint-storage
+              mountPath: /mnt/checkpoints
+      restartPolicy: OnFailure # Restart pods if they fail
+  volumeClaimTemplates:
+    - metadata:
+        name: checkpoint-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi # Adjust storage size as needed

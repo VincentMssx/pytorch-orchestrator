@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pytorch-master-svc
+  labels:
+    app: pytorch-distributed
+spec:
+  clusterIP: None # This makes the service "headless"
+  selector:
+    app: pytorch-distributed
+    role: master
+  ports:
+    - name: dummy # A port is required but isn't used for a headless service
+      port: 12345
+      targetPort: 12345
