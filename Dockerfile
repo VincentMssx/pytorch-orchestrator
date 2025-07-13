@@ -9,9 +9,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code
-COPY models/ /app/models/
-COPY worker.py /app/
+COPY . .
 
 # The entrypoint will be the worker script
 # Arguments will be passed to this script at runtime
-ENTRYPOINT ["python", "worker.py"]
+ENTRYPOINT ["torchrun"]

@@ -1,0 +1,59 @@
+services:
+  # ---------------------------------------------------------------------------
+  # Service 1: The Rendezvous Backend (The "Meeting Point")
+  # This is a stable key-value store that all trainers use to find each other.
+  # It's the heart of the elastic setup.
+  # ---------------------------------------------------------------------------
+  etcd:
+    image: 'bitnami/etcd:latest'
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+    ports:
+      # Exposing the port is optional for testing, but can be helpful for debugging.
+      - "2379:2379"
+
+  # ---------------------------------------------------------------------------
+  # Service 2: The Scalable Trainer
+  # This is the SINGLE blueprint for all our training processes.
+  # We will launch multiple instances of this service.
+  # ---------------------------------------------------------------------------
+  trainer:
+    build: .
+    # Use a more descriptive image name
+    image: pytorch-orchestrator-elastic:latest
+    depends_on:
+      # Ensure the rendezvous server is running before any trainers start.
+      - etcd
+    volumes:
+      # Mount the checkpoints directory to persist them on the host.
+      - ./checkpoints:/app/checkpoints
+    
+    # The command is now passed to the `torchrun` ENTRYPOINT defined in your Dockerfile.
+    # These are the arguments for torchrun itself.
+    command:
+      # The total number of training processes (nodes) to expect.
+      # We use an environment variable to set this dynamically when we run the 'up' command.
+      - "--nnodes=${REPLICAS:-1}"
+      
+      # The number of processes to run on each node (container).
+      # For CPU training or 1-GPU-per-container, this is usually 1.
+      - "--nproc_per_node=1"
+      
+      # The rendezvous backend type. c10d uses a TCP store.
+      - "--rdzv_backend=c10d"
+      
+      # A unique ID for this specific training job. Using the Compose project name is a good practice.
+      - "--rdzv_id=${COMPOSE_PROJECT_NAME:-pytorch-job}"
+      
+      # The network address of our stable rendezvous server.
+      - "--rdzv_endpoint=etcd:2379"
+      
+      # --------------------------------------------------------------------
+      # --- All arguments below this line are passed to your Python script ---
+      # --------------------------------------------------------------------
+      - "main.py"  # Use the new, unified script name
+      - "--epochs=50"
+      - "--steps=200"
+      - "--checkpoint_interval=100"
+      - "--checkpoint_dir=/app/checkpoints"
