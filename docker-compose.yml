@@ -1,62 +1,54 @@
 services:
   # ---------------------------------------------------------------------------
-  # Service 1: The Rendezvous Backend (The "Meeting Point")
-  # This is a stable key-value store that all trainers use to find each other.
-  # It's the heart of the elastic setup.
+  # Master Service (Rank 0)
+  # Acts as the rendezvous backend for the Torch Distributed job.
+  # All other workers connect to this service to join the training group.
   # ---------------------------------------------------------------------------
-  etcd:
-    image: 'bitnami/etcd:latest'
-    environment:
-      # Allow clients to connect without a password (for local testing only)
-      - ALLOW_NONE_AUTHENTICATION=yes
-      # This tells the etcd process to listen for connections on ALL network
-      # interfaces inside the container on port 2382.
-      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2382
-      # Tell etcd to advertise itself using its service name within the Docker network
-      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2382
-    ports:
-      - "2382:2382"
+  master:
+    build: .
+    image: pytorch-orchestrator-elastic:latest
+    container_name: master_worker # Static hostname for the rendezvous endpoint
+    volumes:
+      - ./checkpoints:/app/checkpoints
+    # Command arguments for torchrun.
+    # --nnodes: The number of nodes in the job (min:max).
+    # --nproc_per_node: Number of processes per node.
+    # --rdzv_backend: Rendezvous backend (c10d for TCP).
+    # --rdzv_id: A unique ID for the training job.
+    # --rdzv_endpoint: The endpoint of the master worker for rendezvous.
+    # Arguments after worker.py are passed to the script.
+    command:
+      - "--nnodes=1:4"
+      - "--nproc_per_node=1"
+      - "--rdzv_backend=c10d"
+      - "--rdzv_id=${COMPOSE_PROJECT_NAME:-pytorch-job}"
+      - "--rdzv_endpoint=master_worker:29400"
+      - "worker.py"
+      - "--epochs=50"
+      - "--steps=200"
+      - "--checkpoint_interval=100"
+      - "--checkpoint_dir=/app/checkpoints"
 
   # ---------------------------------------------------------------------------
-  # Service 2: The Scalable Trainer
-  # This is the SINGLE blueprint for all our training processes.
-  # We will launch multiple instances of this service.
+  # Worker Service
+  # Blueprint for scalable training workers.
+  # Scale this service to add more nodes to the training job.
+  # Example: `docker-compose up --scale worker=3` for a 4-node job.
   # ---------------------------------------------------------------------------
-  trainer:
+  worker:
     build: .
-    # Use a more descriptive image name
     image: pytorch-orchestrator-elastic:latest
     depends_on:
-      # Ensure the rendezvous server is running before any trainers start.
-      - etcd
+      - master
     volumes:
-      # Mount the checkpoints directory to persist them on the host.
       - ./checkpoints:/app/checkpoints
-    
-    # The command is now passed to the `torchrun` ENTRYPOINT defined in your Dockerfile.
-    # These are the arguments for torchrun itself.
     command:
-      # The total number of training processes (nodes) to expect.
-      # We use an environment variable to set this dynamically when we run the 'up' command.
       - "--nnodes=1:4"
-      
-      # The number of processes to run on each node (container).
-      # For CPU training or 1-GPU-per-container, this is usually 1.
       - "--nproc_per_node=1"
-      
-      # The rendezvous backend type. c10d uses a TCP store.
-      - "--rdzv_backend=etcd"
-      
-      # A unique ID for this specific training job. Using the Compose project name is a good practice.
+      - "--rdzv_backend=c10d"
       - "--rdzv_id=${COMPOSE_PROJECT_NAME:-pytorch-job}"
-      
-      # The network address of our stable rendezvous server.
-      - "--rdzv_endpoint=etcd:2382"
-      
-      # --------------------------------------------------------------------
-      # --- All arguments below this line are passed to your Python script ---
-      # --------------------------------------------------------------------
-      - "worker.py"  # Use the new, unified script name
+      - "--rdzv_endpoint=master_worker:29400"
+      - "worker.py"
       - "--epochs=50"
       - "--steps=200"
       - "--checkpoint_interval=100"
