@@ -7,11 +7,15 @@ services:
   etcd:
     image: 'bitnami/etcd:latest'
     environment:
+      # Allow clients to connect without a password (for local testing only)
       - ALLOW_NONE_AUTHENTICATION=yes
-      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      # This tells the etcd process to listen for connections on ALL network
+      # interfaces inside the container on port 2382.
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2382
+      # Tell etcd to advertise itself using its service name within the Docker network
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2382
     ports:
-      # Exposing the port is optional for testing, but can be helpful for debugging.
-      - "2379:2379"
+      - "2382:2382"
 
   # ---------------------------------------------------------------------------
   # Service 2: The Scalable Trainer
@@ -34,26 +38,30 @@ services:
     command:
       # The total number of training processes (nodes) to expect.
       # We use an environment variable to set this dynamically when we run the 'up' command.
-      - "--nnodes=${REPLICAS:-1}"
+      - "--nnodes=1:4"
       
       # The number of processes to run on each node (container).
       # For CPU training or 1-GPU-per-container, this is usually 1.
       - "--nproc_per_node=1"
       
       # The rendezvous backend type. c10d uses a TCP store.
-      - "--rdzv_backend=c10d"
+      - "--rdzv_backend=etcd"
       
       # A unique ID for this specific training job. Using the Compose project name is a good practice.
       - "--rdzv_id=${COMPOSE_PROJECT_NAME:-pytorch-job}"
       
       # The network address of our stable rendezvous server.
-      - "--rdzv_endpoint=etcd:2379"
+      - "--rdzv_endpoint=etcd:2382"
       
       # --------------------------------------------------------------------
       # --- All arguments below this line are passed to your Python script ---
       # --------------------------------------------------------------------
-      - "main.py"  # Use the new, unified script name
+      - "worker.py"  # Use the new, unified script name
       - "--epochs=50"
       - "--steps=200"
       - "--checkpoint_interval=100"
       - "--checkpoint_dir=/app/checkpoints"
+
+networks:
+  default:
+    driver: bridge
