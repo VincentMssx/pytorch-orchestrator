@@ -1,0 +1,20 @@
+# Git files
+.git
+.gitignore
+
+# Python specific
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.egg-info/
+
+# IDE / Editor folders
+.vscode/
+.idea/
+
+# Other
+README.md
