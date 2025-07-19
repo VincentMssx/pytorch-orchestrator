@@ -34,10 +34,10 @@ class Trainer:
         self.dataloader = None
         self.sampler = None
         self.start_global_step = 0
+        self._last_logical_epoch_printed = -1
 
     def _setup_distributed(self):
         """Initializes the distributed process group and sets device."""
-        # torchrun will set these environment variables
         self.rank = int(os.environ["RANK"])
         self.local_rank = int(os.environ["LOCAL_RANK"])
         self.world_size = int(os.environ["WORLD_SIZE"])
@@ -139,9 +139,10 @@ class Trainer:
             logical_epoch = current_global_step // len(self.dataloader)
             self.sampler.set_epoch(logical_epoch)
             
-            if self.rank == 0 and (current_global_step % len(self.dataloader)) == 0:
+            if self.rank == 0 and logical_epoch > self._last_logical_epoch_printed:
                 total_epochs = (self.args.total_steps + len(self.dataloader) - 1) // len(self.dataloader)
                 print(f"\n--- Starting Logical Epoch {logical_epoch+1} / {total_epochs} (World Size: {self.world_size}) ---")
+                self._last_logical_epoch_printed = logical_epoch
 
             for inputs, targets in self.dataloader:
                 if current_global_step >= self.args.total_steps:
