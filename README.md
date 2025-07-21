@@ -1,35 +1,82 @@
-# Fault-Tolerant PyTorch Training with Docker and Kubernetes
+# PyTorch Orchestrator
 
-## Project Goal
+This project demonstrates a fault-tolerant, distributed PyTorch training setup using Docker and Kubernetes. It is designed to be resilient to node failures, automatically resuming training from the last saved checkpoint.
 
-This project demonstrates a robust, fault-tolerant orchestration system for distributed PyTorch training using standard containerization and orchestration tools.
+## Key Features
 
-- **Distributed Training**: Utilizes PyTorch `distributed` with the `gloo` backend.
-- **Stateful Checkpointing**: Saves the model, optimizer, and training progress to a shared volume.
-- **Automated Fault Tolerance**: Leverages container orchestrators (Kubernetes or Docker Compose) to automatically restart failed worker processes, resuming from the last valid checkpoint.
-
-This updated version replaces the custom Python-based coordinator with a more production-ready approach, making it suitable for demonstrating skills in MLOps, reliability, and systems engineering for modern machine learning workflows.
+- **Distributed Training**: Leverages `torchrun` and `torch.distributed` for elastic, distributed training.
+- **Fault Tolerance**: Automatically resumes from the last checkpoint upon worker failure and restart.
+- **Stateful Checkpointing**: Periodically saves model, optimizer, and training progress.
+- **Orchestration**:
+    - **Local Development**: Uses Docker Compose to simulate a multi-node environment.
+    - **Production**: Provides Kubernetes manifests for deployment in a cluster.
+- **CI/CD**: Includes a GitHub Actions workflow for continuous integration.
 
 ## Architecture
 
-The system consists of a single, containerized Python script:
+The core of the system is the `worker.py` script, which acts as a generic training worker. The role of "master" or "worker" is determined at runtime by the orchestrator.
 
-1. **`worker.py`**:
+- **`worker.py`**:
+    - A single, containerized Python script that can run as any node in the distributed training job.
+    - On startup, it initializes the distributed process group and loads the latest checkpoint from a shared volume.
+    - It runs a standard PyTorch training loop, periodically saving checkpoints.
+- **Docker Image**:
+    - A single Docker image is built containing the `worker.py` script and all its dependencies.
+- **Orchestrators**:
+    - **Docker Compose**: For local development, it defines `master` and `worker` services that use the same Docker image but with different commands to establish the distributed environment.
+    - **Kubernetes**: For a more production-like environment, `StatefulSet` and `Service` manifests are provided to manage the master and worker pods.
 
-   - Represents a single node/process in the distributed training job.
-   - On startup, it reads its `RANK`, `WORLD_SIZE`, and `MASTER_ADDR` from environment variables, which are injected by the container orchestrator.
-   - **Fault Tolerance**: Before training begins, it scans the shared checkpoint directory (`/mnt/checkpoints`) to find the latest valid checkpoint and automatically resumes from there.
-   - Initializes `torch.distributed` using the `gloo` backend.
-   - Runs a standard training loop with a simple `SimpleModel`.
-   - **Checkpoint Saving**: Periodically, Rank 0 saves a checkpoint to the shared volume. Barriers ensure synchronization around the save operation.
-2. **Container Orchestrator (Kubernetes or Docker Compose)**:
+## How to Run
 
-   - **Responsibilities**: Launching, monitoring, and ensuring the desired number of worker containers are running.
-   - **Fault Tolerance**: If a container exits unexpectedly, the orchestrator automatically relaunches it. The new container picks up from the last checkpoint, ensuring the training job continues with minimal interruption.
+### Prerequisites
 
-## Tech Stack
+- Docker
+- Docker Compose
+- (Optional) A Kubernetes cluster (e.g., Kind, Minikube, or a cloud provider's)
 
-- **Language**: Python 3.12+
-- **ML Framework**: PyTorch
-- **Containerization**: Docker
-- **Orchestration**: Kubernetes, Docker Compose
+### Local Development with Docker Compose
+
+1.  **Build and Run the Services:**
+    ```bash
+    docker-compose up --build
+    ```
+    This command will build the Docker image and start one `master` and one `worker` container. The `master` will act as the rendezvous point.
+
+2.  **Scaling Workers:**
+    To run with more workers, use the `--scale` flag:
+    ```bash
+    docker-compose up --build --scale worker=3
+    ```
+
+3.  **View Logs:**
+    You can view the logs of the services to see the training progress:
+    ```bash
+    docker-compose logs -f
+    ```
+
+### Deployment with Kubernetes
+
+1.  **Build and Load the Image:**
+    First, build the Docker image. If you are using a local cluster like Kind, you'll need to load the image into the cluster.
+    ```bash
+    docker build -t pytorch-orchestrator:latest .
+    kind load docker-image pytorch-orchestrator:latest
+    ```
+
+2.  **Deploy the Manifests:**
+    Apply the Kubernetes manifests to your cluster:
+    ```bash
+    kubectl apply -f kubernetes/master-service.yaml
+    kubectl apply -f kubernetes/master-statefulset.yaml
+    kubectl apply -f kubernetes/worker-statefulset.yaml
+    ```
+
+3.  **Check the Pods:**
+    You can monitor the status of the pods:
+    ```bash
+    kubectl get pods -l app=pytorch-distributed
+    ```
+
+## CI/CD
+
+The project includes a CI workflow in `.github/workflows/ci-cd.yml`. This workflow is triggered on pushes and pull requests to the `main` and `feature/ci-cd` branches. It builds the Docker image to ensure that the project is always in a buildable state.
