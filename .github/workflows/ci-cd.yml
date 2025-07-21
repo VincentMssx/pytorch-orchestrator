@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+      - feature/ci-cd
   pull_request:
     branches:
       - main
+      - feature/ci-cd
 
 jobs:
   build:
