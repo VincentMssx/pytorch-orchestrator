@@ -34,15 +34,24 @@ jobs:
       with:
         string: ${{ github.repository }}
 
-    - name: Print GitHub context
-      run: |
-        echo "github.actor: ${{ github.actor }}"
-        echo "github.repository: ${{ github.repository }}"
-        echo "steps.string.outputs.lowercase: ${{ steps.string.outputs.lowercase }}"
-
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
         push: true
         tags: ghcr.io/${{ steps.string.outputs.lowercase }}:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: [self-hosted, local-k8s]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/ci-cd'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to local Kubernetes
+      run: |
+        kubectl apply -f kubernetes/
+        kubectl rollout restart statefulset/master
+        kubectl rollout restart statefulset/worker

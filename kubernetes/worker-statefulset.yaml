@@ -15,9 +15,11 @@ spec:
         app: pytorch-distributed
         role: worker
     spec:
+      imagePullSecrets:
+        - name: ghcr-creds
       containers:
         - name: pytorch-worker
-          image: pytorch-orchestrator:latest # Your Docker image
+          image: ghcr.io/vincent/pytorch-orchestrator:latest # Your Docker image
           env:
             - name: MASTER_ADDR
               value: "pytorch-master-svc"
@@ -26,7 +28,7 @@ spec:
           command: ["torchrun"]
           args:
             - "--nproc_per_node=1"
-            - "--nnodes=2"
+            - "--nnodes=3" # 1 master + 2 workers
             - "--rdzv_id=elastic_job_123"
             - "--rdzv_backend=c10d"
             - "--rdzv_endpoint=$(MASTER_ADDR):$(MASTER_PORT)"
