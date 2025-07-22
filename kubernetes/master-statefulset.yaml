@@ -46,7 +46,7 @@ spec:
           volumeMounts:
             - name: checkpoint-storage
               mountPath: /mnt/checkpoints
-      restartPolicy: OnFailure
+      restartPolicy: Always
   volumeClaimTemplates:
     - metadata:
         name: checkpoint-storage

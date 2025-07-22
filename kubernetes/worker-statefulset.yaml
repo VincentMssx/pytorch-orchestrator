@@ -44,7 +44,7 @@ spec:
           volumeMounts:
             - name: checkpoint-storage
               mountPath: /mnt/checkpoints
-      restartPolicy: OnFailure # Restart pods if they fail
+      restartPolicy: Always # Restart pods if they fail
   volumeClaimTemplates:
     - metadata:
         name: checkpoint-storage
