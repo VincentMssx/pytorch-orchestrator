@@ -19,3 +19,6 @@ local_work/
 
 # Checkpoints
 checkpoints/
+
+# Bridge
+bridge/
