@@ -32,4 +32,4 @@ The system consists of a single, containerized Python script:
 - **Language**: Python 3.12+
 - **ML Framework**: PyTorch
 - **Containerization**: Docker
-- **Orchestration**: Kubernetes, Docker Compose 
+- **Orchestration**: Kubernetes, Docker Compose
