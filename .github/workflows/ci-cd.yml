@@ -43,7 +43,7 @@ jobs:
 
   deploy:
     needs: build-and-push
-    runs-on: [self-hosted, local-k8s]
+    runs-on: [self-hosted, local-k8-runner]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/ci-cd'
 
     steps:
