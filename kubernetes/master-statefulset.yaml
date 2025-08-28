@@ -15,9 +15,11 @@ spec:
         app: pytorch-distributed
         role: master
     spec:
+      imagePullSecrets:
+        - name: ghcr-creds
       containers:
         - name: pytorch-master
-          image: pytorch-orchestrator:latest # Your Docker image
+          image: ghcr.io/vincent/pytorch-orchestrator:latest # Your Docker image
           env:
             - name: MASTER_ADDR
               value: "pytorch-master-svc"
@@ -44,7 +46,7 @@ spec:
           volumeMounts:
             - name: checkpoint-storage
               mountPath: /mnt/checkpoints
-      restartPolicy: OnFailure
+      restartPolicy: Always 
   volumeClaimTemplates:
     - metadata:
         name: checkpoint-storage

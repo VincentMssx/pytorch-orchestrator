@@ -19,3 +19,9 @@ local_work/
 
 # Checkpoints
 checkpoints/
+
+# Bridge
+bridge/
+
+# Github Actions Runner
+actions-runner/
