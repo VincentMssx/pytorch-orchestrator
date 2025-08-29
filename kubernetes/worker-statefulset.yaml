@@ -19,7 +19,7 @@ spec:
         - name: ghcr-creds
       containers:
         - name: pytorch-worker
-          image: ghcr.io/vincent/pytorch-orchestrator:latest # Your Docker image
+          image: ghcr.io/vincentmssx/pytorch-orchestrator:latest # Your Docker image
           env:
             - name: MASTER_ADDR
               value: "pytorch-master-svc"
