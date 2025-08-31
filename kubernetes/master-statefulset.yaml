@@ -1,57 +1,70 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: pytorch-master
+  name: master
+  labels:
+    app: pytorch-orchestrator
+    role: master
 spec:
-  serviceName: "pytorch-master-svc"
+  serviceName: "master-service"
   replicas: 1
   selector:
     matchLabels:
-      app: pytorch-distributed
+      app: pytorch-orchestrator
       role: master
   template:
     metadata:
       labels:
-        app: pytorch-distributed
+        app: pytorch-orchestrator
         role: master
     spec:
-      imagePullSecrets:
-        - name: ghcr-creds
       containers:
-        - name: pytorch-master
-          image: ghcr.io/vincentmssx/pytorch-orchestrator:latest # Your Docker image
-          env:
-            - name: MASTER_ADDR
-              value: "pytorch-master-svc"
-            - name: MASTER_PORT
-              value: "29400"
-            - name: TORCHELASTIC_RANK
-              value: "0"
-          command: ["torchrun"]
-          args:
-            - "--nproc_per_node=1"
-            - "--nnodes=3" # 1 master + 2 workers
-            - "--rdzv_id=elastic_job_123"
-            - "--rdzv_backend=c10d"
-            - "--rdzv_endpoint=$(MASTER_ADDR):$(MASTER_PORT)"
-            - "--max-restarts=3"
-            - "worker.py"
-            - "--total_steps=10000"
-            - "--batch_size=32"
-            - "--dataset_size=5000"
-            - "--lr=0.01"
-            - "--checkpoint_dir=/mnt/checkpoints"
-            - "--checkpoint_interval=1000"
-            - "--backend=gloo"
-          volumeMounts:
-            - name: checkpoint-storage
-              mountPath: /mnt/checkpoints
-      restartPolicy: Always 
-  volumeClaimTemplates:
-    - metadata:
-        name: checkpoint-storage
-      spec:
-        accessModes: ["ReadWriteOnce"]
+      - name: pytorch
+        # For production, you would push this image to a registry (e.g., Docker Hub, GCR, ECR)
+        # and change the image name to something like 'your-registry/pytorch-orchestrator:latest'
+        image: pytorch-orchestrator
+        # For production, change this to 'IfNotPresent' or 'Always' after pushing to a registry.
+        # 'Never' is used for local development where the image is built directly into the local cluster's Docker daemon.
+        imagePullPolicy: Never
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          WORLD_SIZE=$((1 + $WORKER_REPLICAS))
+          echo "Master starting..."
+          echo "WORLD_SIZE: ${WORLD_SIZE}"
+          echo "RANK: 0"
+          export WORLD_SIZE=${WORLD_SIZE}
+          export RANK=0
+          python -u worker.py --is_master=True
+        ports:
+        - containerPort: 12345
+          name: pytorch-tcp
+        env:
+        - name: MASTER_ADDR
+          value: "master-service"
+        - name: WORKER_REPLICAS
+          valueFrom:
+            configMapKeyRef:
+              name: pytorch-config
+              key: WORKER_REPLICAS
         resources:
           requests:
-            storage: 1Gi # Adjust storage size as needed
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+        livenessProbe:
+          exec:
+            command:
+            - pidof
+            - python
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pidof
+            - python
+          initialDelaySeconds: 10
+          periodSeconds: 5
