@@ -36,7 +36,6 @@ spec:
           echo "RANK: 0"
           export WORLD_SIZE=${WORLD_SIZE}
           export RANK=0
-          python -u worker.py --is_master=True
         ports:
         - containerPort: 12345
           name: pytorch-tcp
