@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: pytorch-config
-  labels:
-    app: pytorch-orchestrator
-data:
-  # -- Number of worker replicas --
-  WORKER_REPLICAS: "1"

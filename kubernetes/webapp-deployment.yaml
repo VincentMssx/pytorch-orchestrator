@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-service
+  labels:
+    app: pytorch-webapp
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+  selector:
+    app: pytorch-webapp
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-external-service
+  labels:
+    app: pytorch-webapp
+spec:
+  ports:
+  - port: 80
+    targetPort: 8000
+    nodePort: 30007
+  selector:
+    app: pytorch-webapp
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pytorch-webapp-deployment
+  labels:
+    app: pytorch-webapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pytorch-webapp
+  template:
+    metadata:
+      labels:
+        app: pytorch-webapp
+    spec:
+      imagePullSecrets:
+      - name: ghcr-secret
+      containers:
+      - name: webapp
+        image: ghcr.io/vincentmssx/pytorch-orchestrator:latest
+        imagePullPolicy: Always
+        command: ["uvicorn"]
+        args: ["webapp.app:app", "--host", "0.0.0.0", "--port", "8000"]
+        ports:
+        - containerPort: 8000

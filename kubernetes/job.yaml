@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pytorch-config
+  labels:
+    app: pytorch-orchestrator
+data:
+  WORKER_REPLICAS: "2"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: master-service
+  labels:
+    app: pytorch-orchestrator
+    role: master
+spec:
+  ports:
+  - protocol: TCP
+    port: 12345
+    targetPort: 12345
+  selector:
+    app: pytorch-orchestrator
+    role: master
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: worker
+  labels:
+    app: pytorch-orchestrator
+    role: worker
+spec:
+  replicas: 2
+  serviceName: "worker-service"
+  selector:
+    matchLabels:
+      app: pytorch-orchestrator
+      role: worker
+  template:
+    metadata:
+      labels:
+        app: pytorch-orchestrator
+        role: worker
+    spec:
+      imagePullSecrets:
+      - name: ghcr-secret
+      containers:
+      - name: pytorch
+        image: ghcr.io/vincentmssx/pytorch-orchestrator:latest
+        imagePullPolicy: Always
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          ORDINAL_INDEX=$(echo $HOSTNAME | rev | cut -d- -f1 | rev)
+          export RANK=$((1 + $ORDINAL_INDEX))
+          export WORLD_SIZE=$((1 + $WORKER_REPLICAS))
+          python -u worker.py
+        env:
+        - name: MASTER_ADDR
+          value: "master-service"
+        - name: MASTER_PORT
+          value: "12345"
+        - name: WORKER_REPLICAS
+          valueFrom:
+            configMapKeyRef:
+              name: pytorch-config
+              key: WORKER_REPLICAS
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: master-job
+spec:
+  template:
+    metadata:
+      labels:
+        app: pytorch-orchestrator
+        role: master
+    spec:
+      imagePullSecrets:
+      - name: ghcr-secret
+      containers:
+      - name: pytorch-master
+        image: ghcr.io/vincentmssx/pytorch-orchestrator:latest
+        imagePullPolicy: Always
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          export RANK=0
+          export WORLD_SIZE=$((1 + $WORKER_REPLICAS))
+          python -u worker.py
+        env:
+        - name: MASTER_ADDR
+          value: "master-service"
+        - name: MASTER_PORT
+          value: "12345"
+        - name: WORKER_REPLICAS
+          valueFrom:
+            configMapKeyRef:
+              name: pytorch-config
+              key: WORKER_REPLICAS
+      restartPolicy: Never
+  backoffLimit: 4
