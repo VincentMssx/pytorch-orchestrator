@@ -24,7 +24,7 @@ spec:
       containers:
       - name: pytorch
         image: pytorch-orchestrator
-        imagePullPolicy: Never
+        imagePullPolicy: IfNotPresent
         command: ["/bin/sh", "-c"]
         args:
         - |

@@ -25,7 +25,7 @@ spec:
         image: pytorch-orchestrator
         # For production, change this to 'IfNotPresent' or 'Always' after pushing to a registry.
         # 'Never' is used for local development where the image is built directly into the local cluster's Docker daemon.
-        imagePullPolicy: Never
+        imagePullPolicy: IfNotPresent
         command: ["/bin/sh", "-c"]
         args:
         - |
