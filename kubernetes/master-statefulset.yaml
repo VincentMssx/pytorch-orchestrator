@@ -18,14 +18,15 @@ spec:
         app: pytorch-orchestrator
         role: master
     spec:
+      # Add the secret to the pod spec
+      imagePullSecrets:
+      - name: ghcr-secret
       containers:
       - name: pytorch
-        # For production, you would push this image to a registry (e.g., Docker Hub, GCR, ECR)
-        # and change the image name to something like 'your-registry/pytorch-orchestrator:latest'
-        image: pytorch-orchestrator
-        # For production, change this to 'IfNotPresent' or 'Always' after pushing to a registry.
-        # 'Never' is used for local development where the image is built directly into the local cluster's Docker daemon.
-        imagePullPolicy: IfNotPresent
+        # 1. Use the full image path from the remote registry
+        image: ghcr.io/vincentmssx/pytorch-orchestrator:latest
+        # 2. Change the pull policy to 'Always'
+        imagePullPolicy: Always
         command: ["/bin/sh", "-c"]
         args:
         - |

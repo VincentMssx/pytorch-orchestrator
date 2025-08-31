@@ -6,9 +6,6 @@ metadata:
     app: pytorch-orchestrator
     role: worker
 spec:
-  # NOTE: The number of replicas is configured in 'kubernetes/config.yaml'.
-  # You must manually keep this value in sync with the WORKER_REPLICAS in the ConfigMap.
-  # For a more advanced setup, use a templating tool like Helm or Kustomize.
   replicas: 1
   serviceName: "worker-service"
   selector:
@@ -21,10 +18,15 @@ spec:
         app: pytorch-orchestrator
         role: worker
     spec:
+      # Add the secret to the pod spec
+      imagePullSecrets:
+      - name: ghcr-secret
       containers:
       - name: pytorch
-        image: pytorch-orchestrator
-        imagePullPolicy: IfNotPresent
+        # 1. Use the full image path from the remote registry
+        image: ghcr.io/vincentmssx/pytorch-orchestrator:latest
+        # 2. Change the pull policy to 'Always'
+        imagePullPolicy: Always
         command: ["/bin/sh", "-c"]
         args:
         - |
