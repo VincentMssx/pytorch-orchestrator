@@ -53,5 +53,5 @@ jobs:
     - name: Deploy to local Kubernetes
       run: |
         kubectl apply -f kubernetes/
-        kubectl rollout restart statefulset/pytorch-master
-        kubectl rollout restart statefulset/pytorch-worker
+        kubectl rollout restart statefulset/master
+        kubectl rollout restart statefulset/worker
